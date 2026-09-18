@@ -6,7 +6,7 @@
   <title>DynoQR - Redirecting...</title>
   <style>
     body {
-      background: #0f172a;
+      background: #0b0f19;
       color: #f8fafc;
       font-family: system-ui, sans-serif;
       display: flex;
@@ -18,16 +18,16 @@
       padding: 1.5rem;
     }
     .box {
-      background: #1e293b;
-      border: 1px solid #334155;
+      background: #151d30;
+      border: 1px solid #26334d;
       border-radius: 12px;
       padding: 2.5rem 1.5rem;
       max-width: 380px;
       width: 100%;
     }
     .spinner {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       border: 3px solid rgba(255,255,255,0.2);
       border-top-color: #4f46e5;
       border-radius: 50%;
@@ -52,7 +52,7 @@
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-    import { getFirestore, doc, getDoc, updateDoc, increment } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+    import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyBLYBG19XPLoHIfrWFf_1U_y4KtaogM65A",
@@ -77,28 +77,24 @@
     }
 
     if (!qrId) {
-      showError('Invalid Link', 'No QR ID specified in the link.');
+      showError('Invalid Link', 'No QR ID specified in the URL.');
     } else {
-      const docRef = doc(db, 'publicQr', qrId);
-      getDoc(docRef).then(snap => {
+      getDoc(doc(db, 'publicQr', qrId)).then(snap => {
         if (!snap.exists()) {
-          showError('Not Found', 'This dynamic QR code does not exist or has been deleted.');
+          showError('Not Found', `This dynamic QR (${qrId}) does not exist in the database.`);
           return;
         }
 
-        const data = snap.val ? snap.val() : snap.data();
+        const data = snap.data();
         if (data.status === 'paused') {
           showError('Paused', 'This QR code is temporarily paused by its owner.');
           return;
         }
 
         if (!data.destination) {
-          showError('Invalid Link', 'No destination link is set.');
+          showError('Invalid Link', 'No destination link is assigned.');
           return;
         }
-
-        // Count scan in background (non-blocking)
-        updateDoc(docRef, { scans: increment(1) }).catch(() => {});
 
         // Direct instant redirect
         window.location.replace(data.destination);
