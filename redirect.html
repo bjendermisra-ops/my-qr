@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DynoQR - Redirecting...</title>
+  <style>
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      text-align: center;
+      padding: 1.5rem;
+    }
+    .box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 380px;
+      width: 100%;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div id="loading">
+      <div class="spinner"></div>
+      <h3>Redirecting...</h3>
+      <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">Taking you to destination...</p>
+    </div>
+    <div id="error" style="display: none;">
+      <h3 style="color: #ef4444;" id="err-title">Unavailable</h3>
+      <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;" id="err-msg">QR code not found.</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
+    import { getDatabase, ref, get, runTransaction } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBLYBG19XPLoHIfrWFf_1U_y4KtaogM65A",
+      authDomain: "dynamic-qr-8c011.firebaseapp.com",
+      projectId: "dynamic-qr-8c011",
+      storageBucket: "dynamic-qr-8c011.firebasestorage.app",
+      messagingSenderId: "618665607161",
+      appId: "1:618665607161:web:990ee3f86759720962c728"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const rtdb = getDatabase(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const qrId = params.get('id');
+
+    function showError(title, msg) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('err-title').textContent = title;
+      document.getElementById('err-msg').textContent = msg;
+    }
+
+    if (!qrId) {
+      showError('Invalid Link', 'No QR ID was provided.');
+    } else {
+      get(ref(rtdb, `publicQr/${qrId}`)).then(snapshot => {
+        if (!snapshot.exists()) {
+          showError('Not Found', 'This dynamic QR code does not exist or has been deleted.');
+          return;
+        }
+
+        const data = snapshot.val();
+        if (data.status === 'paused') {
+          showError('Paused', 'This QR code is currently paused by its owner.');
+          return;
+        }
+
+        if (!data.destination) {
+          showError('Empty Destination', 'No destination link is assigned.');
+          return;
+        }
+
+        // Increment scan count in background
+        runTransaction(ref(rtdb, `qrStats/${qrId}/total`), (count) => (count || 0) + 1).catch(() => {});
+
+        // Instant redirect
+        window.location.replace(data.destination);
+      }).catch(err => {
+        showError('Network Error', err.message);
+      });
+    }
+  </script>
+</body>
+</html>
