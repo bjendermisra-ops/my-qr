@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DynoQR - Dynamic QR Code Studio</title>
+  <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg: #0b0f19;
+      --card: #151d30;
+      --card-border: #26334d;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 4rem; }
+    a { color: var(--primary); text-decoration: none; }
+
+    nav { display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1.25rem; background: #101726; border-bottom: 1px solid var(--card-border); position: sticky; top: 0; z-index: 50; }
+    .brand { font-size: 1.25rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 0.5rem; }
+    .user-info { display: flex; align-items: center; gap: 0.6rem; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--card-border); }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer; transition: 0.2s ease; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
+    .btn-outline:hover:not(:disabled) { border-color: var(--primary); color: #fff; }
+    .btn-success { background: #059669; color: #fff; }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+    .btn-sm { padding: 0.35rem 0.65rem; font-size: 0.78rem; }
+
+    .container { max-width: 1050px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .grid-editor { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; }
+    @media (max-width: 768px) { .grid-editor { grid-template-columns: 1fr; } }
+
+    .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.25rem; }
+    h2, h3 { color: #fff; font-weight: 700; margin-bottom: 0.4rem; }
+
+    .form-group { margin-bottom: 0.9rem; }
+    label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.3rem; color: var(--text-muted); }
+    input, select { width: 100%; padding: 0.6rem 0.8rem; border-radius: 8px; border: 1px solid var(--card-border); background: #090d16; color: #fff; outline: none; font-size: 0.9rem; }
+    input:focus, select:focus { border-color: var(--primary); }
+
+    .qr-preview-box { width: 220px; height: 220px; margin: 0.75rem auto; background: #ffffff; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 8px; }
+
+    /* Cards Grid */
+    .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem; margin-top: 1rem; }
+    .qr-item { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; }
+    .qr-item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+    .qr-badge { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 99px; background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+
+    .item-qr-box { width: 140px; height: 140px; background: #fff; border-radius: 8px; margin: 0.5rem auto 1rem; display: flex; align-items: center; justify-content: center; padding: 6px; }
+
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+    .modal.active { display: flex; }
+    .modal-box { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); max-width: 440px; width: 100%; padding: 1.5rem; }
+
+    #toast { position: fixed; bottom: 1.25rem; right: 1.25rem; background: var(--card); border: 1px solid var(--card-border); color: #fff; padding: 0.75rem 1.25rem; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); transform: translateY(100px); opacity: 0; transition: 0.3s ease; z-index: 999; }
+    #toast.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="brand">⚡ DynoQR</div>
+    <div id="auth-section">
+      <button id="google-login-btn" class="btn btn-outline btn-sm">Sign in with Google</button>
+      <div id="logged-in-view" style="display: none;" class="user-info">
+        <img id="user-img" class="avatar" src="" alt="user">
+        <span id="user-display" style="font-size: 0.85rem; font-weight: 600;"></span>
+        <button id="logout-btn" class="btn btn-outline btn-sm">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="grid-editor">
+      <!-- Create Panel -->
+      <div>
+        <div class="card">
+          <h2>Create New Dynamic QR</h2>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            इस QR कोड को प्रिंट कराने के बाद भी आप इसका Destination Link कभी भी बदल सकते हैं।
+          </p>
+
+          <div class="form-group">
+            <label for="qr-name">Campaign Name (नाम)</label>
+            <input type="text" id="qr-name" placeholder="e.g. My Website, App Download" value="My Project QR">
+          </div>
+
+          <div class="form-group">
+            <label for="qr-destination">Destination URL (जहाँ यूज़र को भेजना है) *</label>
+            <input type="url" id="qr-destination" placeholder="https://example.com" value="https://google.com">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="qr-dots-color">Dots Color</label>
+              <input type="color" id="qr-dots-color" value="#0f172a" style="height: 38px; padding: 2px;">
+            </div>
+            <div class="form-group">
+              <label for="qr-bg-color">Background Color</label>
+              <input type="color" id="qr-bg-color" value="#ffffff" style="height: 38px; padding: 2px;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Panel -->
+      <div>
+        <div class="card" style="text-align: center;">
+          <h3>QR Preview</h3>
+          <div class="qr-preview-box" id="qr-preview"></div>
+          
+          <button id="save-btn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+            ⚡ Save & Activate QR
+          </button>
+          <button id="download-preview-btn" class="btn btn-outline" style="width: 100%;">
+            Download This QR (PNG)
+          </button>
+          <div id="status-tag" style="margin-top: 0.6rem; font-size: 0.8rem; color: var(--text-muted);">
+            Ready to generate
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active QR Code Cards -->
+    <div style="margin-top: 2.5rem;">
+      <h3>Your Active Dynamic QR Codes</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">
+        नीचे दिए गए किसी भी QR को आप सीधे टेस्ट या डाउनलोड कर सकते हैं:
+      </p>
+
+      <div id="qr-list" class="qr-grid">
+        <div style="grid-column: 1/-1; text-align: center; padding: 2.5rem; color: var(--text-muted);">
+          Please Sign in with Google to load your QR codes.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Destination Modal -->
+  <div class="modal" id="edit-modal">
+    <div class="modal-box">
+      <h3>Change Destination URL</h3>
+      <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">
+        QR कोड वही रहेगा! बस नया लिंक डालते ही पुराना QR कोड नए लिंक पर भेजने लगेगा।
+      </p>
+      <input type="hidden" id="modal-qr-id">
+      <div class="form-group">
+        <label>Campaign Name</label>
+        <input type="text" id="modal-qr-name">
+      </div>
+      <div class="form-group">
+        <label>New Target URL</label>
+        <input type="url" id="modal-qr-dest" placeholder="https://">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+        <button id="close-modal-btn" class="btn btn-outline btn-sm">Cancel</button>
+        <button id="update-modal-btn" class="btn btn-primary btn-sm">Update Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
+    import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBLYBG19XPLoHIfrWFf_1U_y4KtaogM65A",
+      authDomain: "dynamic-qr-8c011.firebaseapp.com",
+      projectId: "dynamic-qr-8c011",
+      storageBucket: "dynamic-qr-8c011.firebasestorage.app",
+      messagingSenderId: "618665607161",
+      appId: "1:618665607161:web:990ee3f86759720962c728"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    let currentUser = null;
+    let activeQrId = generateId(8);
+    let activeQrIsSaved = false;
+
+    // 100% Reliable Redirect URL Generator (Works on any GitHub Pages subfolder or root)
+    function buildRedirectUrl(id) {
+      const fullHref = window.location.href.split('?')[0].split('#')[0];
+      const baseDir = fullHref.substring(0, fullHref.lastIndexOf('/') + 1);
+      return `${baseDir}redirect.html?id=${id}`;
+    }
+
+    function generateId(len = 8) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let res = '';
+      const arr = new Uint8Array(len);
+      crypto.getRandomValues(arr);
+      for(let i = 0; i < len; i++) res += chars[arr[i] % chars.length];
+      return res;
+    }
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    // Initialize Creator Preview
+    const previewDesigner = new QRCodeStyling({
+      width: 200,
+      height: 200,
+      data: buildRedirectUrl(activeQrId),
+      dotsOptions: { color: '#0f172a', type: 'rounded' },
+      backgroundOptions: { color: '#ffffff' },
+      cornersSquareOptions: { type: 'extra-rounded' }
+    });
+    previewDesigner.append(document.getElementById('qr-preview'));
+
+    function updateCreatorColors() {
+      previewDesigner.update({
+        dotsOptions: { color: document.getElementById('qr-dots-color').value },
+        backgroundOptions: { color: document.getElementById('qr-bg-color').value }
+      });
+    }
+    document.getElementById('qr-dots-color').addEventListener('input', updateCreatorColors);
+    document.getElementById('qr-bg-color').addEventListener('input', updateCreatorColors);
+
+    // Download preview
+    document.getElementById('download-preview-btn').addEventListener('click', () => {
+      if (!activeQrIsSaved) {
+        toast('⚠️ पहले "Save & Activate QR" दबाएं!');
+        return;
+      }
+      previewDesigner.download({ name: 'my-dynamic-qr', extension: 'png' });
+    });
+
+    // Auth
+    document.getElementById('google-login-btn').addEventListener('click', () => signInWithPopup(auth, provider));
+    document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      const loginBtn = document.getElementById('google-login-btn');
+      const loggedInView = document.getElementById('logged-in-view');
+      if (user) {
+        loginBtn.style.display = 'none';
+        loggedInView.style.display = 'flex';
+        document.getElementById('user-display').textContent = user.displayName || user.email;
+        document.getElementById('user-img').src = user.photoURL || '';
+        loadUserQrs();
+      } else {
+        loginBtn.style.display = 'block';
+        loggedInView.style.display = 'none';
+        document.getElementById('qr-list').innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 2.5rem; color: var(--text-muted);">
+            Please Sign in with Google to view and manage your QR codes.
+          </div>`;
+      }
+    });
+
+    // Save Dynamic QR
+    document.getElementById('save-btn').addEventListener('click', async () => {
+      if (!currentUser) {
+        toast('⚠️ पहले ऊपर "Sign in with Google" करें!');
+        return;
+      }
+
+      const dest = document.getElementById('qr-destination').value.trim();
+      const name = document.getElementById('qr-name').value.trim() || 'My QR';
+
+      if (!dest.startsWith('http://') && !dest.startsWith('https://')) {
+        toast('⚠️ कृपया पूरा लिंक डालें (e.g. https://google.com)');
+        return;
+      }
+
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true;
+      btn.textContent = 'Activating...';
+
+      try {
+        // 1. Save in public collection (scanners read from here)
+        await setDoc(doc(db, 'publicQr', activeQrId), {
+          destination: dest,
+          status: 'active',
+          ownerUid: currentUser.uid,
+          createdAt: Date.now()
+        });
+
+        // 2. Save in user's management collection
+        await setDoc(doc(db, 'users', currentUser.uid, 'qrCodes', activeQrId), {
+          id: activeQrId,
+          name: name,
+          destination: dest,
+          status: 'active',
+          updatedAt: Date.now()
+        });
+
+        activeQrIsSaved = true;
+        document.getElementById('status-tag').innerHTML = '<span style="color:var(--success); font-weight:bold;">✅ Saved & Active! नीचे लिस्ट में भी आ गया।</span>';
+        toast('✅ QR Saved! अब नीचे लिस्ट से सीधे Test या Download करें।');
+        
+        loadUserQrs();
+      } catch (err) {
+        toast('❌ Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⚡ Save & Activate QR';
+      }
+    });
+
+    // Load and Render Saved QR Codes
+    async function loadUserQrs() {
+      if (!currentUser) return;
+      const list = document.getElementById('qr-list');
+      try {
+        const snap = await getDocs(collection(db, 'users', currentUser.uid, 'qrCodes'));
+        if (snap.empty) {
+          list.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">No QR codes saved yet. Create your first one above!</div>';
+          return;
+        }
+
+        list.innerHTML = '';
+        snap.forEach(d => {
+          const qr = d.data();
+          const publicLink = buildRedirectUrl(qr.id);
+          const card = document.createElement('div');
+          card.className = 'qr-item';
+
+          card.innerHTML = `
+            <div>
+              <div class="qr-item-header">
+                <strong style="font-size: 1.05rem;">${qr.name}</strong>
+                <span class="qr-badge">ACTIVE</span>
+              </div>
+              <p style="color:var(--text-muted); font-size:0.8rem; word-break:break-all; margin-bottom: 0.5rem;">
+                🔗 <strong>Target:</strong> ${qr.destination}
+              </p>
+              
+              <!-- QR Thumbnail for THIS specific code -->
+              <div class="item-qr-box" id="qr-box-${qr.id}"></div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:0.4rem; margin-top: 0.5rem;">
+              <div style="display:flex; gap:0.4rem;">
+                <a href="${publicLink}" target="_blank" class="btn btn-success btn-sm" style="flex:1;">🚀 Test Link</a>
+                <button class="btn btn-outline btn-sm download-btn" style="flex:1;">⬇️ Download</button>
+              </div>
+              <div style="display:flex; gap:0.4rem;">
+                <button class="btn btn-outline btn-sm edit-btn" style="flex:1;">✏️ Change URL</button>
+                <button class="btn btn-outline btn-sm copy-btn">📋 Copy</button>
+                <button class="btn btn-danger btn-sm delete-btn">🗑️</button>
+              </div>
+            </div>
+          `;
+
+          list.appendChild(card);
+
+          // Render specific QR in card
+          const itemDesigner = new QRCodeStyling({
+            width: 128,
+            height: 128,
+            data: publicLink,
+            dotsOptions: { color: '#0f172a', type: 'rounded' },
+            backgroundOptions: { color: '#ffffff' },
+            cornersSquareOptions: { type: 'extra-rounded' }
+          });
+          itemDesigner.append(card.querySelector(`#qr-box-${qr.id}`));
+
+          // Actions
+          card.querySelector('.download-btn').addEventListener('click', () => {
+            itemDesigner.download({ name: `${qr.name || 'qr'}-code`, extension: 'png' });
+          });
+
+          card.querySelector('.copy-btn').addEventListener('click', () => {
+            navigator.clipboard.writeText(publicLink);
+            toast('✅ Link copied! Browser में पेस्ट करके चेक करें।');
+          });
+
+          card.querySelector('.edit-btn').addEventListener('click', () => {
+            document.getElementById('modal-qr-id').value = qr.id;
+            document.getElementById('modal-qr-name').value = qr.name;
+            document.getElementById('modal-qr-dest').value = qr.destination;
+            document.getElementById('edit-modal').classList.add('active');
+          });
+
+          card.querySelector('.delete-btn').addEventListener('click', async () => {
+            if (confirm(`Delete "${qr.name}"? This QR code will stop redirecting permanently!`)) {
+              await deleteDoc(doc(db, 'users', currentUser.uid, 'qrCodes', qr.id));
+              await deleteDoc(doc(db, 'publicQr', qr.id));
+              toast('Deleted!');
+              loadUserQrs();
+            }
+          });
+        });
+      } catch (e) {
+        list.innerHTML = `<div style="grid-column: 1/-1; color: var(--danger); text-align: center;">Error: ${e.message}</div>`;
+      }
+    }
+
+    // Modal Edit Target URL
+    document.getElementById('update-modal-btn').addEventListener('click', async () => {
+      const qid = document.getElementById('modal-qr-id').value;
+      const newDest = document.getElementById('modal-qr-dest').value.trim();
+      const newName = document.getElementById('modal-qr-name').value.trim();
+
+      if (!newDest.startsWith('http://') && !newDest.startsWith('https://')) {
+        toast('Enter valid URL starting with http:// or https://');
+        return;
+      }
+
+      await updateDoc(doc(db, 'publicQr', qid), { destination: newDest });
+      await updateDoc(doc(db, 'users', currentUser.uid, 'qrCodes', qid), {
+        destination: newDest,
+        name: newName,
+        updatedAt: Date.now()
+      });
+
+      toast('✅ Destination updated! Scanners will now go to the new link.');
+      document.getElementById('edit-modal').classList.remove('active');
+      loadUserQrs();
+    });
+
+    document.getElementById('close-modal-btn').addEventListener('click', () => {
+      document.getElementById('edit-modal').classList.remove('active');
+    });
+  </script>
+</body>
+</html>
